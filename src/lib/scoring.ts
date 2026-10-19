@@ -1,84 +1,58 @@
-import {
-  attrDefById,
-  type Blueprint,
-  type ModelParams,
-  type ScoreWeights,
-} from '@/types/blueprint'
+import type { Blueprint, ModelParams, ScoreWeights } from '@/types/blueprint'
 
-export type RollPoint = 'min' | 'avg' | 'max'
+export interface DamageProfile {
+  /** 最高伤害（暴击与弱点同时触发） */
+  dMax: number
+  /** 期望伤害 */
+  dAvg: number
+  /** 伤害标准差（暴击/弱点触发带来的波动） */
+  sigma: number
+}
 
 /**
- * 伤害指数：把图纸上的伤害类词条折算成一个综合伤害倍率。
- * - 武器伤害 / 元素伤害：独立乘区
- * - 暴击率 × 暴击伤害：1 + rate × dmg（暴击率封顶 100%）
- * - 弱点伤害：乘以弱点命中率系数
- * - 对精英/畸变体/首领：乘以覆盖率系数
- * - 其他加伤：统一加区
- * 非伤害词条不参与计算。
+ * 伤害模型：
+ * - 基础伤害 = 攻击力 × (1 + 元素伤害加成)，全程生效、无波动
+ * - 暴击因子 = 1 + 暴击率 × 暴击伤害（期望），波动 sqrt(p(1-p)) × 暴击伤害
+ * - 弱点因子 = 1 + 弱点命中率 × 弱点伤害（期望），波动 sqrt(q(1-q)) × 弱点伤害
+ * 最高伤害 = 基础 × (1+暴击伤害) × (1+弱点伤害)（暴击与弱点同时触发）
  */
-export function damageIndex(
-  bp: Blueprint,
-  roll: RollPoint,
-  params: ModelParams,
-): number {
-  let mult = 1
-  let linear = 0
-  let critRate = 0
-  let critDmg = 0
-  let weak = 0
-  let boss = 0
+export function damageProfile(bp: Blueprint, params: ModelParams): DamageProfile {
+  const p =
+    (params.baseCritRate + (bp.subAttrId === 'crit_rate' ? bp.subValue : 0)) / 100
+  const d =
+    (params.baseCritDmg + (bp.subAttrId === 'crit_dmg' ? bp.subValue : 0)) / 100
+  const v = (bp.subAttrId === 'weakspot_dmg' ? bp.subValue : 0) / 100
+  const e = (bp.subAttrId === 'elemental_dmg' ? bp.subValue : 0) / 100
+  const q = Math.min(Math.max(params.weakUptime, 0), 1)
 
-  for (const e of bp.entries) {
-    const def = attrDefById(e.attrId)
-    if (def.kind === 'utility') continue
-    const raw =
-      roll === 'min' ? e.min : roll === 'max' ? e.max : (e.min + e.max) / 2
-    const v = raw / 100
-    switch (def.kind) {
-      case 'weaponDmg':
-      case 'elemental':
-        mult *= 1 + v
-        break
-      case 'critRate':
-        critRate += v
-        break
-      case 'critDmg':
-        critDmg += v
-        break
-      case 'weakspot':
-        weak += v
-        break
-      case 'bossDmg':
-        boss += v
-        break
-      case 'otherDmg':
-        linear += v
-        break
-    }
-  }
+  const base = bp.attack * (1 + e)
+  const critP = Math.min(Math.max(p, 0), 1)
 
-  critRate = Math.min(critRate, 1)
-  const critFactor = 1 + critRate * critDmg
-  const weakFactor = 1 + weak * params.weakUptime
-  const bossFactor = 1 + boss * params.bossUptime
+  const mc = 1 + critP * d
+  const sc = Math.sqrt(critP * (1 - critP)) * d
+  const mw = 1 + q * v
+  const sw = Math.sqrt(q * (1 - q)) * v
 
-  return mult * critFactor * weakFactor * bossFactor * (1 + linear)
+  const dAvg = base * mc * mw
+  const dMax = base * (1 + d) * (1 + v)
+  // 两个独立随机因子的乘积方差：E[A²]E[B²] − (E[A]E[B])²
+  const variance =
+    base * base * ((sc * sc + mc * mc) * (sw * sw + mw * mw) - mc * mc * mw * mw)
+  const sigma = Math.sqrt(Math.max(variance, 0))
+
+  return { dMax, dAvg, sigma }
 }
 
 export interface BlueprintScore {
   id: string
-  /** 最高伤害指数（满 roll） */
+  /** 最高伤害 */
   dMax: number
-  /** 期望伤害指数（词条取中值） */
+  /** 期望伤害 */
   dAvg: number
-  /** 最低伤害指数（最低 roll） */
-  dMin: number
-  /** 出伤稳定度 = dMin / dMax × 100，越接近 100 出伤越稳 */
+  /** 出伤稳定度 = 期望 ÷ (期望 + 波动) × 100，越接近 100 出伤越稳 */
   stability: number
-  /** 伤害上限得分：相对当前图纸池最高值的 0~100 分 */
+  /** 最高伤害得分：相对当前图纸池最高值的 0~100 分 */
   damageScore: number
-  /** 期望伤害得分：相对最高期望值的 0~100 分 */
-  avgScore: number
   /** 综合分 = 伤害权重 × damageScore + 稳定权重 × stability */
   total: number
   rank: number
@@ -91,26 +65,21 @@ export function scoreBlueprints(
   weights: ScoreWeights,
 ): BlueprintScore[] {
   const raw = bps.map((bp) => {
-    const dMax = damageIndex(bp, 'max', params)
-    const dAvg = damageIndex(bp, 'avg', params)
-    const dMin = damageIndex(bp, 'min', params)
-    const stability = dMax > 0 ? (dMin / dMax) * 100 : 0
-    return { id: bp.id, dMax, dAvg, dMin, stability }
+    const { dMax, dAvg, sigma } = damageProfile(bp, params)
+    const stability = dAvg + sigma > 0 ? (dAvg / (dAvg + sigma)) * 100 : 100
+    return { id: bp.id, dMax, dAvg, stability }
   })
 
   const bestDMax = Math.max(...raw.map((r) => r.dMax), 1e-9)
-  const bestDAvg = Math.max(...raw.map((r) => r.dAvg), 1e-9)
   const wSum = Math.max(weights.damage + weights.stability, 1e-9)
   const wD = weights.damage / wSum
   const wS = weights.stability / wSum
 
   const scored = raw.map((r) => {
     const damageScore = (r.dMax / bestDMax) * 100
-    const avgScore = (r.dAvg / bestDAvg) * 100
     return {
       ...r,
       damageScore,
-      avgScore,
       total: wD * damageScore + wS * r.stability,
     }
   })
@@ -119,10 +88,6 @@ export function scoreBlueprints(
   return scored.map((s, i) => ({ ...s, rank: i + 1 }))
 }
 
-export function fmt(n: number, digits = 2): string {
+export function fmt(n: number, digits = 1): string {
   return n.toFixed(digits)
-}
-
-export function fmtPct(n: number, digits = 1): string {
-  return `${n.toFixed(digits)}%`
 }

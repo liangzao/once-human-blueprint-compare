@@ -11,14 +11,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, Trash2, ImagePlus, X } from 'lucide-react'
+import { ImagePlus, X } from 'lucide-react'
 import {
-  ATTR_CATALOG,
   RARITIES,
+  SUB_ATTR_CATALOG,
   WEAPON_SUGGESTIONS,
-  attrDefById,
   type Blueprint,
-  type BlueprintEntry,
+  type SubAttrId,
 } from '@/types/blueprint'
 import { fileToCompressedDataUrl, uid } from '@/lib/storage'
 
@@ -28,22 +27,15 @@ interface Props {
   onCancelEdit: () => void
 }
 
-interface DraftEntry {
-  id: string
-  attrId: string
-  min: string
-  max: string
-}
-
-const emptyDraft = (): DraftEntry => ({ id: uid(), attrId: 'weapon_dmg', min: '', max: '' })
-
 export default function BlueprintForm({ editing, onSave, onCancelEdit }: Props) {
   const [name, setName] = useState('')
   const [weapon, setWeapon] = useState('')
   const [rarity, setRarity] = useState(RARITIES[1])
+  const [attack, setAttack] = useState('')
+  const [subAttrId, setSubAttrId] = useState<SubAttrId>('crit_rate')
+  const [subValue, setSubValue] = useState('')
   const [note, setNote] = useState('')
   const [image, setImage] = useState<string | undefined>()
-  const [entries, setEntries] = useState<DraftEntry[]>([emptyDraft()])
   const [error, setError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -52,16 +44,11 @@ export default function BlueprintForm({ editing, onSave, onCancelEdit }: Props) 
       setName(editing.name)
       setWeapon(editing.weapon)
       setRarity(editing.rarity || RARITIES[1])
+      setAttack(String(editing.attack))
+      setSubAttrId(editing.subAttrId)
+      setSubValue(String(editing.subValue))
       setNote(editing.note ?? '')
       setImage(editing.image)
-      setEntries(
-        editing.entries.map((e) => ({
-          id: e.id,
-          attrId: e.attrId,
-          min: String(e.min),
-          max: String(e.max),
-        })),
-      )
     } else {
       reset()
     }
@@ -71,14 +58,12 @@ export default function BlueprintForm({ editing, onSave, onCancelEdit }: Props) 
     setName('')
     setWeapon('')
     setRarity(RARITIES[1])
+    setAttack('')
+    setSubAttrId('crit_rate')
+    setSubValue('')
     setNote('')
     setImage(undefined)
-    setEntries([emptyDraft()])
     setError('')
-  }
-
-  function updateEntry(id: string, patch: Partial<DraftEntry>) {
-    setEntries((list) => list.map((e) => (e.id === id ? { ...e, ...patch } : e)))
   }
 
   async function onPickImage(file: File | undefined) {
@@ -92,27 +77,18 @@ export default function BlueprintForm({ editing, onSave, onCancelEdit }: Props) 
 
   function submit() {
     setError('')
-    const rows: BlueprintEntry[] = []
-    for (const d of entries) {
-      const min = parseFloat(d.min)
-      const max = parseFloat(d.max)
-      if (Number.isNaN(min) && Number.isNaN(max)) continue
-      if (Number.isNaN(min) || Number.isNaN(max)) {
-        setError('词条数值不完整：每条词条都要填下限和上限')
-        return
-      }
-      if (min > max) {
-        setError(`词条「${attrDefById(d.attrId).label}」下限不能大于上限`)
-        return
-      }
-      rows.push({ id: d.id, attrId: d.attrId, min, max })
-    }
+    const atk = parseFloat(attack)
+    const sub = parseFloat(subValue)
     if (!name.trim()) {
       setError('请给图纸起个名字')
       return
     }
-    if (rows.length === 0) {
-      setError('至少需要一条词条')
+    if (!Number.isFinite(atk) || atk <= 0) {
+      setError('请填写主词条攻击力数值')
+      return
+    }
+    if (!Number.isFinite(sub) || sub < 0) {
+      setError('请填写副词条数值')
       return
     }
     onSave({
@@ -120,9 +96,11 @@ export default function BlueprintForm({ editing, onSave, onCancelEdit }: Props) 
       name: name.trim(),
       weapon: weapon.trim(),
       rarity,
+      attack: atk,
+      subAttrId,
+      subValue: sub,
       note: note.trim() || undefined,
       image,
-      entries: rows,
       createdAt: editing?.createdAt ?? Date.now(),
     })
     reset()
@@ -132,16 +110,14 @@ export default function BlueprintForm({ editing, onSave, onCancelEdit }: Props) 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">
-          {editing ? '编辑图纸' : '录入图纸'}
-        </CardTitle>
+        <CardTitle className="text-lg">{editing ? '编辑图纸' : '录入图纸'}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2 space-y-1.5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
             <Label>图纸名称</Label>
             <Input
-              placeholder="例：大白鲨·双暴金图纸"
+              placeholder="例：大白鲨·暴击率金图纸"
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
@@ -175,60 +151,41 @@ export default function BlueprintForm({ editing, onSave, onCancelEdit }: Props) 
               </SelectContent>
             </Select>
           </div>
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>词条（数值填 roll 区间，单位 %）</Label>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setEntries((l) => [...l, emptyDraft()])}
-            >
-              <Plus className="size-4" /> 加词条
-            </Button>
+          <div className="space-y-1.5">
+            <Label>主词条 · 攻击力</Label>
+            <Input
+              placeholder="例：452"
+              inputMode="decimal"
+              value={attack}
+              onChange={(e) => setAttack(e.target.value)}
+            />
           </div>
-          {entries.map((d) => (
-            <div key={d.id} className="flex items-center gap-2">
-              <Select value={d.attrId} onValueChange={(v) => updateEntry(d.id, { attrId: v })}>
-                <SelectTrigger className="w-[45%]">
+          <div className="space-y-1.5">
+            <Label>副词条</Label>
+            <div className="flex gap-2">
+              <Select value={subAttrId} onValueChange={(v) => setSubAttrId(v as SubAttrId)}>
+                <SelectTrigger className="w-[55%]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {ATTR_CATALOG.map((a) => (
+                  {SUB_ATTR_CATALOG.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
                       {a.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Input
-                className="w-0 flex-1"
-                placeholder="下限"
-                inputMode="decimal"
-                value={d.min}
-                onChange={(e) => updateEntry(d.id, { min: e.target.value })}
-              />
-              <span className="text-muted-foreground">~</span>
-              <Input
-                className="w-0 flex-1"
-                placeholder="上限"
-                inputMode="decimal"
-                value={d.max}
-                onChange={(e) => updateEntry(d.id, { max: e.target.value })}
-              />
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                disabled={entries.length <= 1}
-                onClick={() => setEntries((l) => l.filter((e) => e.id !== d.id))}
-              >
-                <Trash2 className="size-4" />
-              </Button>
+              <div className="flex flex-1 items-center gap-1">
+                <Input
+                  placeholder="数值"
+                  inputMode="decimal"
+                  value={subValue}
+                  onChange={(e) => setSubValue(e.target.value)}
+                />
+                <span className="text-sm text-muted-foreground">%</span>
+              </div>
             </div>
-          ))}
+          </div>
         </div>
 
         <div className="space-y-1.5">

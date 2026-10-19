@@ -6,11 +6,7 @@ import BlueprintList from '@/sections/BlueprintList'
 import CompareCharts from '@/sections/CompareCharts'
 import RankingTable from '@/sections/RankingTable'
 import WeightSettings from '@/sections/WeightSettings'
-import {
-  type Blueprint,
-  type ModelParams,
-  type ScoreWeights,
-} from '@/types/blueprint'
+import type { Blueprint, ModelParams, ScoreWeights } from '@/types/blueprint'
 import { scoreBlueprints } from '@/lib/scoring'
 import {
   exportJson,
@@ -82,17 +78,19 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Swords className="size-6 text-amber-500" />
-            <div>
-              <h1 className="text-lg font-bold leading-tight">七日世界 · 精校图纸对比</h1>
-              <p className="text-xs text-zinc-400">
-                录入图纸词条 roll 区间，综合最高伤害与出伤稳定度，挑出最优图纸
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <Swords className="size-6 shrink-0 text-amber-500" />
+            <div className="min-w-0">
+              <h1 className="truncate text-base font-bold leading-tight sm:text-lg">
+                七日世界 · 精校图纸对比
+              </h1>
+              <p className="hidden text-xs text-zinc-400 sm:block">
+                录入图纸主副词条，综合最高伤害与出伤稳定度，挑出最优图纸
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <input
               ref={importRef}
               type="file"
@@ -101,7 +99,7 @@ export default function Home() {
               onChange={(e) => onImportFile(e.target.files?.[0])}
             />
             <Button variant="outline" size="sm" onClick={() => importRef.current?.click()}>
-              <Upload className="size-4" /> 导入 JSON
+              <Upload className="size-4" /> 导入
             </Button>
             <Button
               variant="outline"
@@ -109,20 +107,20 @@ export default function Home() {
               onClick={() => exportJson(blueprints)}
               disabled={blueprints.length === 0}
             >
-              <Download className="size-4" /> 导出 JSON
+              <Download className="size-4" /> 导出
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6">
+      <main className="mx-auto max-w-7xl space-y-6 px-3 py-4 sm:px-4 sm:py-6">
         {importMsg && (
           <p className="rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm">
             {importMsg}
           </p>
         )}
 
-        <div className="grid items-start gap-6 lg:grid-cols-[360px_1fr]">
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[360px_1fr]">
           <div className="space-y-6">
             <BlueprintForm
               editing={editing}
@@ -137,7 +135,7 @@ export default function Home() {
             />
           </div>
 
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             <RankingTable blueprints={blueprints} scores={scores} />
             <CompareCharts blueprints={blueprints} scores={scores} />
           </div>
@@ -155,8 +153,10 @@ export default function Home() {
 
         <footer className="border-t border-zinc-800 pt-4 text-xs text-zinc-500">
           <p>
-            评分说明：伤害指数把武器/元素伤害作为乘区、暴击率×暴击伤害联动、弱点与特攻词条按覆盖率系数折算；
-            稳定度 = 最低 roll 伤害 ÷ 满 roll 伤害 × 100，越高出伤越稳；综合分按上方权重加权。数据仅保存在本机浏览器。
+            评分说明：最高伤害 = 攻击力 × (1+元素加成) × (1+暴击伤害) ×
+            (1+弱点伤害)，即暴击与弱点同时触发的爆发上限；稳定度 = 期望伤害 ÷ (期望伤害 +
+            波动) × 100，暴击率/弱点类词条占比越高波动越大、稳定度越低；综合分 =
+            伤害权重 × 最高伤害分 + 稳定权重 × 稳定度。数据仅保存在本机浏览器。
           </p>
         </footer>
       </main>

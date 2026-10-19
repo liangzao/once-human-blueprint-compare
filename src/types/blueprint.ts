@@ -1,73 +1,47 @@
 // 七日世界 · 武器精校图纸 数据模型
 
-/** 词条对伤害模型的作用方式 */
-export type AttrKind =
-  | 'weaponDmg' // 武器/枪械伤害加成：乘区
-  | 'elemental' // 元素伤害加成：乘区
-  | 'critRate' // 暴击率：与暴击伤害联动
-  | 'critDmg' // 暴击伤害：与暴击率联动
-  | 'weakspot' // 弱点伤害：乘以弱点命中率系数
-  | 'bossDmg' // 对精英/畸变体/首领伤害：乘以覆盖率系数
-  | 'otherDmg' // 其他线性加伤：统一加区
-  | 'utility' // 非伤害词条（换弹、弹匣等），不参与伤害评分
+/** 副词条可选类型（游戏内精校图纸只有一主一副两条词条） */
+export type SubAttrId = 'crit_rate' | 'crit_dmg' | 'weakspot_dmg' | 'elemental_dmg'
 
 export interface AttrDef {
-  id: string
+  id: SubAttrId
   label: string
-  kind: AttrKind
-  /** 数值单位说明，如 % */
   unit: string
 }
 
-/** 内置词条目录（伤害类 + 常用辅助类） */
-export const ATTR_CATALOG: AttrDef[] = [
-  { id: 'weapon_dmg', label: '武器伤害加成', kind: 'weaponDmg', unit: '%' },
-  { id: 'gun_dmg', label: '枪械伤害加成', kind: 'weaponDmg', unit: '%' },
-  { id: 'elemental_dmg', label: '元素伤害加成', kind: 'elemental', unit: '%' },
-  { id: 'burn_dmg', label: '炽能伤害加成', kind: 'elemental', unit: '%' },
-  { id: 'frost_dmg', label: '霜寒伤害加成', kind: 'elemental', unit: '%' },
-  { id: 'shock_dmg', label: '电离伤害加成', kind: 'elemental', unit: '%' },
-  { id: 'crit_rate', label: '暴击率', kind: 'critRate', unit: '%' },
-  { id: 'crit_dmg', label: '暴击伤害', kind: 'critDmg', unit: '%' },
-  { id: 'weakspot_dmg', label: '弱点伤害加成', kind: 'weakspot', unit: '%' },
-  { id: 'elite_dmg', label: '对精英敌人伤害', kind: 'bossDmg', unit: '%' },
-  { id: 'deviant_dmg', label: '对畸变体伤害', kind: 'bossDmg', unit: '%' },
-  { id: 'boss_dmg', label: '对首领伤害', kind: 'bossDmg', unit: '%' },
-  { id: 'other_dmg', label: '其他伤害加成', kind: 'otherDmg', unit: '%' },
-  { id: 'reload_speed', label: '换弹速度', kind: 'utility', unit: '%' },
-  { id: 'mag_capacity', label: '弹匣容量', kind: 'utility', unit: '%' },
-  { id: 'stability', label: '武器稳定性', kind: 'utility', unit: '%' },
-  { id: 'draw_speed', label: '切枪速度', kind: 'utility', unit: '%' },
-  { id: 'move_speed', label: '移动速度', kind: 'utility', unit: '%' },
+/** 副词条目录：暴击率 / 暴击伤害 / 弱点伤害 / 元素伤害 */
+export const SUB_ATTR_CATALOG: AttrDef[] = [
+  { id: 'crit_rate', label: '暴击率', unit: '%' },
+  { id: 'crit_dmg', label: '暴击伤害', unit: '%' },
+  { id: 'weakspot_dmg', label: '弱点伤害加成', unit: '%' },
+  { id: 'elemental_dmg', label: '元素伤害加成', unit: '%' },
 ]
 
-export function attrDefById(id: string): AttrDef {
+export function subAttrDef(id: string): AttrDef {
   return (
-    ATTR_CATALOG.find((a) => a.id === id) ?? {
-      id,
+    SUB_ATTR_CATALOG.find((a) => a.id === id) ?? {
+      id: 'elemental_dmg',
       label: id,
-      kind: 'utility',
       unit: '%',
     }
   )
 }
 
-/** 一条精校词条：数值有上下限（roll 区间） */
-export interface BlueprintEntry {
-  id: string
-  attrId: string
-  /** 自定义词条名（attrId 为 custom 时使用） */
-  customLabel?: string
-  min: number
-  max: number
-}
-
+/**
+ * 精校图纸：主词条固定为攻击力（确切数值），
+ * 副词条为四类之一（确切数值）。
+ */
 export interface Blueprint {
   id: string
   name: string
   weapon: string
   rarity: string
-  entries: BlueprintEntry[]
+  /** 主词条：攻击力（确切数值） */
+  attack: number
+  /** 副词条类型 */
+  subAttrId: SubAttrId
+  /** 副词条数值（%） */
+  subValue: number
   /** 截图（压缩后的 dataURL），可选 */
   image?: string
   note?: string
@@ -76,10 +50,12 @@ export interface Blueprint {
 
 /** 伤害模型可调参数 */
 export interface ModelParams {
+  /** 面板基础暴击率（%），默认 5 */
+  baseCritRate: number
+  /** 面板基础暴击伤害（%），默认 150 */
+  baseCritDmg: number
   /** 弱点命中率系数 0~1，默认 0.6 */
   weakUptime: number
-  /** 对精英/畸变体/首领词条的覆盖率系数 0~1，默认 0.7 */
-  bossUptime: number
 }
 
 /** 综合评分权重 */
@@ -90,7 +66,11 @@ export interface ScoreWeights {
   stability: number
 }
 
-export const DEFAULT_PARAMS: ModelParams = { weakUptime: 0.6, bossUptime: 0.7 }
+export const DEFAULT_PARAMS: ModelParams = {
+  baseCritRate: 5,
+  baseCritDmg: 150,
+  weakUptime: 0.6,
+}
 export const DEFAULT_WEIGHTS: ScoreWeights = { damage: 60, stability: 40 }
 
 export const RARITIES = ['稀有(蓝)', '史诗(紫)', '传说(金)']

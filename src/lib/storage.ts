@@ -1,14 +1,16 @@
 import {
   DEFAULT_PARAMS,
   DEFAULT_WEIGHTS,
+  SUB_ATTR_CATALOG,
   type Blueprint,
   type ModelParams,
   type ScoreWeights,
+  type SubAttrId,
 } from '@/types/blueprint'
 
-const KEY_BPS = 'oh-blueprints:v1'
-const KEY_PARAMS = 'oh-params:v1'
-const KEY_WEIGHTS = 'oh-weights:v1'
+const KEY_BPS = 'oh-blueprints:v2'
+const KEY_PARAMS = 'oh-params:v2'
+const KEY_WEIGHTS = 'oh-weights:v2'
 
 export function uid(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
@@ -67,6 +69,8 @@ export function exportJson(bps: Blueprint[]) {
   URL.revokeObjectURL(url)
 }
 
+const VALID_SUB_IDS = new Set(SUB_ATTR_CATALOG.map((a) => a.id))
+
 /** 解析导入的 JSON，返回合法的图纸数组（非法则抛错） */
 export function parseImport(text: string): Blueprint[] {
   const data = JSON.parse(text)
@@ -75,7 +79,11 @@ export function parseImport(text: string): Blueprint[] {
   const out: Blueprint[] = []
   for (const item of arr) {
     if (!item || typeof item !== 'object') continue
-    if (!Array.isArray(item.entries)) continue
+    const attack = Number(item.attack)
+    const subValue = Number(item.subValue)
+    const subAttrId = String(item.subAttrId ?? '') as SubAttrId
+    if (!Number.isFinite(attack) || attack <= 0) continue
+    if (!VALID_SUB_IDS.has(subAttrId) || !Number.isFinite(subValue)) continue
     out.push({
       id: typeof item.id === 'string' ? item.id : uid(),
       name: String(item.name ?? '未命名图纸'),
@@ -84,15 +92,9 @@ export function parseImport(text: string): Blueprint[] {
       note: item.note ? String(item.note) : undefined,
       image: typeof item.image === 'string' ? item.image : undefined,
       createdAt: typeof item.createdAt === 'number' ? item.createdAt : Date.now(),
-      entries: item.entries
-        .filter((e: any) => e && typeof e === 'object')
-        .map((e: any) => ({
-          id: typeof e.id === 'string' ? e.id : uid(),
-          attrId: String(e.attrId ?? 'other_dmg'),
-          customLabel: e.customLabel ? String(e.customLabel) : undefined,
-          min: Number(e.min) || 0,
-          max: Number(e.max) || 0,
-        })),
+      attack,
+      subAttrId,
+      subValue,
     })
   }
   if (out.length === 0) throw new Error('没有可导入的图纸数据')
@@ -134,40 +136,33 @@ function sampleBlueprints(): Blueprint[] {
   return [
     {
       id: uid(),
-      name: '图纸A · 双暴流',
+      name: '图纸A · 暴击率',
       weapon: '大白鲨',
       rarity: '传说(金)',
+      attack: 452,
+      subAttrId: 'crit_rate',
+      subValue: 12.5,
       createdAt: now - 2000,
-      entries: [
-        { id: uid(), attrId: 'weapon_dmg', min: 12, max: 18 },
-        { id: uid(), attrId: 'crit_rate', min: 8, max: 12 },
-        { id: uid(), attrId: 'crit_dmg', min: 20, max: 30 },
-        { id: uid(), attrId: 'reload_speed', min: 10, max: 15 },
-      ],
     },
     {
       id: uid(),
-      name: '图纸B · 稳定直伤',
+      name: '图纸B · 弱点伤害',
       weapon: '大白鲨',
       rarity: '传说(金)',
+      attack: 468,
+      subAttrId: 'weakspot_dmg',
+      subValue: 24,
       createdAt: now - 1000,
-      entries: [
-        { id: uid(), attrId: 'weapon_dmg', min: 15, max: 17 },
-        { id: uid(), attrId: 'elemental_dmg', min: 10, max: 12 },
-        { id: uid(), attrId: 'deviant_dmg', min: 12, max: 14 },
-      ],
     },
     {
       id: uid(),
-      name: '图纸C · 弱点特化',
+      name: '图纸C · 元素伤害',
       weapon: '大白鲨',
       rarity: '史诗(紫)',
+      attack: 445,
+      subAttrId: 'elemental_dmg',
+      subValue: 15,
       createdAt: now,
-      entries: [
-        { id: uid(), attrId: 'weakspot_dmg', min: 18, max: 32 },
-        { id: uid(), attrId: 'weapon_dmg', min: 6, max: 14 },
-        { id: uid(), attrId: 'crit_rate', min: 4, max: 10 },
-      ],
     },
   ]
 }

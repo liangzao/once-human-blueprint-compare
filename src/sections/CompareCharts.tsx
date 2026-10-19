@@ -36,10 +36,9 @@ export default function CompareCharts({ blueprints, scores }: Props) {
 
   const barData = scores.map((s) => ({
     name: byId.get(s.id)?.name ?? s.id,
-    综合分: +fmt(s.total, 1),
-    伤害上限分: +fmt(s.damageScore, 1),
-    期望伤害分: +fmt(s.avgScore, 1),
-    稳定度: +fmt(s.stability, 1),
+    综合分: +fmt(s.total),
+    最高伤害分: +fmt(s.damageScore),
+    稳定度: +fmt(s.stability),
   }))
 
   const shown = (selected.length > 0 ? selected : scores.slice(0, 3).map((s) => s.id))
@@ -47,41 +46,37 @@ export default function CompareCharts({ blueprints, scores }: Props) {
     .filter((s): s is BlueprintScore => !!s)
 
   const radarData = [
-    { metric: '伤害上限', key: 'damageScore' as const },
-    { metric: '期望伤害', key: 'avgScore' as const },
+    { metric: '最高伤害', key: 'damageScore' as const },
     { metric: '出伤稳定', key: 'stability' as const },
     { metric: '综合分', key: 'total' as const },
   ].map(({ metric, key }) => {
     const row: Record<string, string | number> = { metric }
     for (const s of shown) {
-      row[byId.get(s.id)?.name ?? s.id] = +fmt(s[key], 1)
+      row[byId.get(s.id)?.name ?? s.id] = +fmt(s[key])
     }
     return row
   })
 
   function toggle(id: string, checked: boolean) {
-    setSelected((list) =>
-      checked ? [...list, id] : list.filter((x) => x !== id),
-    )
+    setSelected((list) => (checked ? [...list, id] : list.filter((x) => x !== id)))
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">评分对比</CardTitle>
         </CardHeader>
-        <CardContent className="h-80">
+        <CardContent className="h-72 sm:h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={barData} margin={{ left: -16, right: 8, top: 8 }}>
+            <BarChart data={barData} margin={{ left: -20, right: 8, top: 8 }}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
-              <XAxis dataKey="name" fontSize={12} />
+              <XAxis dataKey="name" fontSize={11} interval={0} angle={-15} textAnchor="end" height={50} />
               <YAxis fontSize={12} domain={[0, 100]} />
               <Tooltip />
               <Legend />
               <Bar dataKey="综合分" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="伤害上限分" fill="#38bdf8" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="期望伤害分" fill="#a78bfa" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="最高伤害分" fill="#38bdf8" radius={[4, 4, 0, 0]} />
               <Bar dataKey="稳定度" fill="#34d399" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -107,7 +102,7 @@ export default function CompareCharts({ blueprints, scores }: Props) {
               </div>
             ))}
           </div>
-          <div className="h-64">
+          <div className="h-60 sm:h-64">
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart data={radarData}>
                 <PolarGrid opacity={0.3} />

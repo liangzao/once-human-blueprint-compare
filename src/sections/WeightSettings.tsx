@@ -16,7 +16,7 @@ export default function WeightSettings({ weights, params, onWeights, onParams }:
       <CardHeader>
         <CardTitle className="text-lg">评分模型设置</CardTitle>
       </CardHeader>
-      <CardContent className="grid gap-6 md:grid-cols-2">
+      <CardContent className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div className="space-y-5">
           <div className="space-y-2">
             <div className="flex justify-between">
@@ -45,10 +45,40 @@ export default function WeightSettings({ weights, params, onWeights, onParams }:
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            综合分 = 伤害权重 × 伤害上限分 + 稳定权重 × 稳定度。两项权重会按比例归一化。
+            综合分 = 伤害权重 × 最高伤害分 + 稳定权重 × 稳定度。两项权重会按比例归一化。
           </p>
         </div>
         <div className="space-y-5">
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <Label>面板基础暴击率</Label>
+              <span className="font-mono text-sm text-muted-foreground">
+                {params.baseCritRate}%
+              </span>
+            </div>
+            <Slider
+              value={[params.baseCritRate]}
+              min={0}
+              max={50}
+              step={1}
+              onValueChange={([v]) => onParams({ ...params, baseCritRate: v })}
+            />
+          </div>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <Label>面板基础暴击伤害</Label>
+              <span className="font-mono text-sm text-muted-foreground">
+                {params.baseCritDmg}%
+              </span>
+            </div>
+            <Slider
+              value={[params.baseCritDmg]}
+              min={100}
+              max={300}
+              step={5}
+              onValueChange={([v]) => onParams({ ...params, baseCritDmg: v })}
+            />
+          </div>
           <div className="space-y-2">
             <div className="flex justify-between">
               <Label>弱点命中率系数</Label>
@@ -64,23 +94,8 @@ export default function WeightSettings({ weights, params, onWeights, onParams }:
               onValueChange={([v]) => onParams({ ...params, weakUptime: v / 100 })}
             />
           </div>
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <Label>精英/畸变体/首领词条覆盖率</Label>
-              <span className="font-mono text-sm text-muted-foreground">
-                {Math.round(params.bossUptime * 100)}%
-              </span>
-            </div>
-            <Slider
-              value={[params.bossUptime * 100]}
-              min={0}
-              max={100}
-              step={5}
-              onValueChange={([v]) => onParams({ ...params, bossUptime: v / 100 })}
-            />
-          </div>
           <p className="text-xs text-muted-foreground">
-            弱点/特攻词条不是全程生效，用系数折算进伤害指数。按你的实战习惯调整。
+            基础面板按你的角色实际面板填；弱点命中率按实战习惯调整，会影响弱点词条的期望收益与波动。
           </p>
         </div>
       </CardContent>
