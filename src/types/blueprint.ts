@@ -28,15 +28,15 @@ export function subAttrDef(id: string): AttrDef {
 }
 
 /**
- * 精校图纸：主词条固定为攻击力（确切数值），
- * 副词条为四类之一（确切数值）。
+ * 精校图纸：主词条固定为攻击力加成（百分比），
+ * 副词条为四类之一（百分比）。所有数值均为确切值。
  */
 export interface Blueprint {
   id: string
   name: string
   weapon: string
   rarity: string
-  /** 主词条：攻击力（确切数值） */
+  /** 主词条：攻击力加成（百分比确切数值） */
   attack: number
   /** 副词条类型 */
   subAttrId: SubAttrId

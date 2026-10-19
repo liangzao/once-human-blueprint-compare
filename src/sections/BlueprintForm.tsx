@@ -84,7 +84,7 @@ export default function BlueprintForm({ editing, onSave, onCancelEdit }: Props) 
       return
     }
     if (!Number.isFinite(atk) || atk <= 0) {
-      setError('请填写主词条攻击力数值')
+      setError('请填写主词条攻击力加成（%）')
       return
     }
     if (!Number.isFinite(sub) || sub < 0) {
@@ -152,13 +152,16 @@ export default function BlueprintForm({ editing, onSave, onCancelEdit }: Props) 
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>主词条 · 攻击力</Label>
-            <Input
-              placeholder="例：452"
-              inputMode="decimal"
-              value={attack}
-              onChange={(e) => setAttack(e.target.value)}
-            />
+            <Label>主词条 · 攻击力加成</Label>
+            <div className="flex items-center gap-1">
+              <Input
+                placeholder="例：15"
+                inputMode="decimal"
+                value={attack}
+                onChange={(e) => setAttack(e.target.value)}
+              />
+              <span className="text-sm text-muted-foreground">%</span>
+            </div>
           </div>
           <div className="space-y-1.5">
             <Label>副词条</Label>

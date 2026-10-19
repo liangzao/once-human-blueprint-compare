@@ -66,8 +66,8 @@ export default function BlueprintList({ blueprints, bestId, onEdit, onDelete }: 
             )}
             <ul className="space-y-1 text-sm">
               <li className="flex justify-between gap-2">
-                <span className="text-muted-foreground">攻击力（主词条）</span>
-                <span className="font-mono">{bp.attack}</span>
+                <span className="text-muted-foreground">攻击力加成（主词条）</span>
+                <span className="font-mono">{bp.attack}%</span>
               </li>
               <li className="flex justify-between gap-2">
                 <span className="text-muted-foreground">

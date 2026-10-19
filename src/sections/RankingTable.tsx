@@ -40,14 +40,14 @@ export default function RankingTable({ blueprints, scores }: Props) {
                 </span>
               </p>
               <p className="mt-1 text-muted-foreground">
-                最高伤害 {fmt(best.dMax, 0)}（得分 {fmt(best.damageScore)}），出伤稳定度{' '}
+                最高伤害倍率 {fmt(best.dMax, 2)}（得分 {fmt(best.damageScore)}），出伤稳定度{' '}
                 {fmt(best.stability)}。综合权重下排名第一。
               </p>
             </div>
           </div>
         )}
         <div className="overflow-x-auto">
-          <Table className="min-w-[560px]">
+          <Table className="min-w-[520px]">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12">#</TableHead>
@@ -55,7 +55,7 @@ export default function RankingTable({ blueprints, scores }: Props) {
                 <TableHead className="text-right">综合分</TableHead>
                 <TableHead className="text-right">最高伤害分</TableHead>
                 <TableHead className="text-right">稳定度</TableHead>
-                <TableHead className="text-right">最高/期望伤害</TableHead>
+                <TableHead className="text-right">最高伤害倍率</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -85,7 +85,7 @@ export default function RankingTable({ blueprints, scores }: Props) {
                     <TableCell className="text-right font-mono">{fmt(s.damageScore)}</TableCell>
                     <TableCell className="text-right font-mono">{fmt(s.stability)}</TableCell>
                     <TableCell className="text-right font-mono text-xs">
-                      {fmt(s.dMax, 0)} / {fmt(s.dAvg, 0)}
+                      ×{fmt(s.dMax, 2)}
                     </TableCell>
                   </TableRow>
                 )
